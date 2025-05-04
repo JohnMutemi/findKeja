@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { z } from 'zod';
-import prisma from '@/lib/prisma';
+import { prisma } from '@/lib/prisma';
 
 const propertySchema = z.object({
   title: z.string().min(5),
@@ -80,39 +80,13 @@ export async function POST(request: Request) {
   }
 }
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
-    const { searchParams } = new URL(request.url);
-    const type = searchParams.get('type');
-    const minPrice = searchParams.get('minPrice');
-    const maxPrice = searchParams.get('maxPrice');
-    const bedrooms = searchParams.get('bedrooms');
-    const city = searchParams.get('city');
-    const amenities = searchParams.get('amenities')?.split(',');
-
-    const where = {
-      ...(type && { type }),
-      ...(minPrice && { price: { gte: Number(minPrice) } }),
-      ...(maxPrice && { price: { lte: Number(maxPrice) } }),
-      ...(bedrooms && { bedrooms: Number(bedrooms) }),
-      ...(city && { location: { city } }),
-      ...(amenities && {
-        amenities: {
-          hasSome: amenities,
-        },
-      }),
-    };
-
     const properties = await prisma.property.findMany({
-      where,
       include: {
-        location: true,
         owner: {
           select: {
-            id: true,
             name: true,
-            email: true,
-            image: true,
           },
         },
       },

@@ -3,63 +3,20 @@ import { getServerSession } from 'next-auth';
 import { prisma } from '@/lib/prisma';
 import { authOptions } from '@/lib/auth';
 
-export async function POST(req: Request) {
+export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions);
-
-    if (!session?.user) {
-      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { conversationId, content } = await req.json();
+    const { content, conversationId, receiverId } = await request.json();
 
-    if (!conversationId || !content) {
-      return NextResponse.json(
-        { message: 'Missing required fields' },
-        { status: 400 }
-      );
-    }
-
-    // Verify user is part of the conversation
-    const conversation = await prisma.conversation.findFirst({
-      where: {
-        id: conversationId,
-        participants: {
-          some: {
-            id: session.user.id,
-          },
-        },
-      },
-      include: {
-        participants: true,
-      },
-    });
-
-    if (!conversation) {
-      return NextResponse.json(
-        { message: 'Conversation not found' },
-        { status: 404 }
-      );
-    }
-
-    // Get the other participant
-    const otherParticipant = conversation.participants.find(
-      (p) => p.id !== session.user.id
-    );
-
-    if (!otherParticipant) {
-      return NextResponse.json(
-        { message: 'Invalid conversation' },
-        { status: 400 }
-      );
-    }
-
-    // Create the message
     const message = await prisma.message.create({
       data: {
         content,
         senderId: session.user.id,
-        receiverId: otherParticipant.id,
+        receiverId,
         conversationId,
       },
       include: {
@@ -71,21 +28,54 @@ export async function POST(req: Request) {
       },
     });
 
-    // Update conversation's updatedAt
-    await prisma.conversation.update({
+    return NextResponse.json(message);
+  } catch (error) {
+    console.error('Error creating message:', error);
+    return NextResponse.json(
+      { error: 'Failed to create message' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function GET(request: Request) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const conversationId = searchParams.get('conversationId');
+
+    if (!conversationId) {
+      return NextResponse.json(
+        { error: 'Conversation ID is required' },
+        { status: 400 }
+      );
+    }
+
+    const messages = await prisma.message.findMany({
       where: {
-        id: conversationId,
+        conversationId,
       },
-      data: {
-        updatedAt: new Date(),
+      include: {
+        sender: {
+          select: {
+            name: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'asc',
       },
     });
 
-    return NextResponse.json(message);
+    return NextResponse.json(messages);
   } catch (error) {
-    console.error('Error sending message:', error);
+    console.error('Error fetching messages:', error);
     return NextResponse.json(
-      { message: 'Something went wrong' },
+      { error: 'Failed to fetch messages' },
       { status: 500 }
     );
   }

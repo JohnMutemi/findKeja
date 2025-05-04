@@ -1,0 +1,125 @@
+// This is your Prisma schema file
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  phone         String?
+  role          UserRole  @default(RENTER)
+  accounts      Account[]
+  sessions      Session[]
+  properties    Property[]
+  inquiries     Inquiry[]
+}
+
+model VerificationToken {
+  id         String   @id @default(cuid())
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Property {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  type        PropertyType
+  price       Float
+  deposit     Float
+  bedrooms    Int
+  bathrooms   Int
+  location    Location?
+  amenities   String[]
+  images      String[]
+  videoUrl    String?
+  isAvailable Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  ownerId     String
+  owner       User     @relation(fields: [ownerId], references: [id])
+  inquiries   Inquiry[]
+}
+
+model Location {
+  id        String   @id @default(cuid())
+  address   String
+  city      String
+  state     String
+  country   String
+  latitude  Float
+  longitude Float
+  property  Property @relation(fields: [propertyId], references: [id])
+  propertyId String  @unique
+}
+
+model Inquiry {
+  id         String   @id @default(cuid())
+  message    String
+  status     InquiryStatus @default(PENDING)
+  createdAt  DateTime @default(now())
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id])
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+}
+
+enum UserRole {
+  ADMIN
+  LANDLORD
+  RENTER
+}
+
+enum PropertyType {
+  BEDSITTER
+  ONE_BEDROOM
+  TWO_BEDROOM
+  THREE_BEDROOM
+  FOUR_BEDROOM
+  STUDIO
+}
+
+enum InquiryStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  COMPLETED
+} 

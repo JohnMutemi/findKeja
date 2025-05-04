@@ -32,6 +32,15 @@ enum ReportStatus {
   DISMISSED
 }
 
+enum PropertyType {
+  APARTMENT
+  HOUSE
+  STUDIO
+  VILLA
+  TOWNHOUSE
+  PENTHOUSE
+}
+
 model User {
   id            String         @id @default(cuid())
   name          String
@@ -52,9 +61,21 @@ model Property {
   description String
   price       Float
   status      PropertyStatus @default(AVAILABLE)
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
-  owner       User           @relation(fields: [ownerId], references: [id])
+  type        PropertyType   @default(APARTMENT)
+  bedrooms    Int
+  bathrooms   Int
+  area        Float         // in square meters
+  address     String
+  city        String
+  state       String
+  country     String
+  latitude    Float
+  longitude   Float
+  images      String[]      // Array of image URLs
+  amenities   String[]      // Array of amenities
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  owner       User          @relation(fields: [ownerId], references: [id])
   ownerId     String
 }
 

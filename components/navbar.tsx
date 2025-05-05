@@ -13,6 +13,10 @@ import {
   Settings,
   Menu,
   X,
+  Building2,
+  Map,
+  Info,
+  Phone,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -31,15 +35,16 @@ export function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const navItems = [
-    { href: '#featured', label: 'Featured' },
-    { href: '#map', label: 'Explore Kitengela' },
-    { href: '#how-it-works', label: 'How It Works' },
-    { href: '#testimonials', label: 'Testimonials' },
+    { href: '/', label: 'Home', icon: Home },
+    { href: '/listings', label: 'Listings', icon: Building2 },
+    { href: '/map', label: 'Map', icon: Map },
+    { href: '/about', label: 'About', icon: Info },
+    { href: '/contact', label: 'Contact', icon: Phone },
   ];
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-16 items-center justify-between">
+    <header className="sticky top-0 z-50 w-full border-b bg-white shadow-sm">
+      <div className="container flex h-16 items-center justify-between px-4">
         <Logo />
 
         {/* Desktop Navigation */}
@@ -48,7 +53,8 @@ export function Navbar() {
             <Link
               key={item.href}
               href={item.href}
-              className="text-sm font-medium hover:underline">
+              className="flex items-center gap-2 text-sm font-medium text-gray-600 transition-colors hover:text-primary">
+              <item.icon className="h-4 w-4" />
               {item.label}
             </Link>
           ))}
@@ -106,7 +112,7 @@ export function Navbar() {
             <>
               <Link
                 href="/login"
-                className="text-sm font-medium hover:underline">
+                className="text-sm font-medium text-gray-600 transition-colors hover:text-primary">
                 Log in
               </Link>
               <Button asChild>
@@ -131,69 +137,74 @@ export function Navbar() {
       </div>
 
       {/* Mobile Menu */}
-      {isMobileMenuOpen && (
-        <div className="md:hidden">
-          <div className="container space-y-4 py-4">
-            {navItems.map((item) => (
+      <div
+        className={`md:hidden transition-all duration-200 ease-in-out ${
+          isMobileMenuOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
+        } overflow-hidden bg-white border-t`}>
+        <div className="container space-y-4 px-4 py-4">
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="flex items-center gap-2 text-sm font-medium text-gray-600 transition-colors hover:text-primary"
+              onClick={() => setIsMobileMenuOpen(false)}>
+              <item.icon className="h-4 w-4" />
+              {item.label}
+            </Link>
+          ))}
+          {session ? (
+            <>
               <Link
-                key={item.href}
-                href={item.href}
-                className="block text-sm font-medium hover:underline"
+                href="/messages"
+                className="flex items-center gap-2 text-sm font-medium text-gray-600 transition-colors hover:text-primary"
                 onClick={() => setIsMobileMenuOpen(false)}>
-                {item.label}
+                <MessageSquare className="h-4 w-4" />
+                Messages
               </Link>
-            ))}
-            {session ? (
-              <>
+              <Link
+                href="/profile"
+                className="flex items-center gap-2 text-sm font-medium text-gray-600 transition-colors hover:text-primary"
+                onClick={() => setIsMobileMenuOpen(false)}>
+                <User className="h-4 w-4" />
+                Profile
+              </Link>
+              {session.user.role === 'ADMIN' && (
                 <Link
-                  href="/messages"
-                  className="block text-sm font-medium hover:underline"
+                  href="/admin"
+                  className="flex items-center gap-2 text-sm font-medium text-gray-600 transition-colors hover:text-primary"
                   onClick={() => setIsMobileMenuOpen(false)}>
-                  Messages
+                  <Settings className="h-4 w-4" />
+                  Admin Dashboard
                 </Link>
-                <Link
-                  href="/profile"
-                  className="block text-sm font-medium hover:underline"
-                  onClick={() => setIsMobileMenuOpen(false)}>
-                  Profile
+              )}
+              <button
+                className="flex items-center gap-2 w-full text-left text-sm font-medium text-red-600 transition-colors hover:text-red-700"
+                onClick={() => {
+                  signOut();
+                  setIsMobileMenuOpen(false);
+                }}>
+                <LogOut className="h-4 w-4" />
+                Log out
+              </button>
+            </>
+          ) : (
+            <>
+              <Link
+                href="/login"
+                className="flex items-center gap-2 text-sm font-medium text-gray-600 transition-colors hover:text-primary"
+                onClick={() => setIsMobileMenuOpen(false)}>
+                <User className="h-4 w-4" />
+                Log in
+              </Link>
+              <Button asChild className="w-full">
+                <Link href="/signup" onClick={() => setIsMobileMenuOpen(false)}>
+                  Sign up
                 </Link>
-                {session.user.role === 'ADMIN' && (
-                  <Link
-                    href="/admin"
-                    className="block text-sm font-medium hover:underline"
-                    onClick={() => setIsMobileMenuOpen(false)}>
-                    Admin Dashboard
-                  </Link>
-                )}
-                <button
-                  className="block w-full text-left text-sm font-medium text-red-600 hover:underline"
-                  onClick={() => {
-                    signOut();
-                    setIsMobileMenuOpen(false);
-                  }}>
-                  Log out
-                </button>
-              </>
-            ) : (
-              <>
-                <Link
-                  href="/login"
-                  className="block text-sm font-medium hover:underline"
-                  onClick={() => setIsMobileMenuOpen(false)}>
-                  Log in
-                </Link>
-                <Button asChild className="w-full">
-                  <Link
-                    href="/signup"
-                    onClick={() => setIsMobileMenuOpen(false)}>
-                    Sign up
-                  </Link>
-                </Button>
-              </>
-            )}
-          </div>
+              </Button>
+            </>
+          )}
         </div>
-      )}
+      </div>
     </header>
   );
 }

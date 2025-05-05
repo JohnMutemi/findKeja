@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { sendInquiryNotification } from '@/lib/email';
+import { pusherServer } from '@/lib/pusher';
 
 const inquirySchema = z.object({
   name: z.string().min(2),
@@ -13,29 +14,22 @@ const inquirySchema = z.object({
   propertyTitle: z.string(),
 });
 
-export async function POST(req: Request) {
+export async function POST(request: Request) {
   try {
     const session = await getServerSession();
+
     if (!session?.user) {
       return NextResponse.json(
-        { message: 'You must be logged in to send an inquiry' },
+        { message: 'Authentication required' },
         { status: 401 }
       );
     }
 
-    const body = await req.json();
-    const validatedData = inquirySchema.parse(body);
+    const { propertyId, message } = await request.json();
 
-    // Get property owner's email
     const property = await prisma.property.findUnique({
-      where: { id: validatedData.propertyId },
-      include: {
-        owner: {
-          select: {
-            email: true,
-          },
-        },
-      },
+      where: { id: propertyId },
+      include: { owner: true },
     });
 
     if (!property) {
@@ -47,37 +41,40 @@ export async function POST(req: Request) {
 
     const inquiry = await prisma.inquiry.create({
       data: {
-        name: validatedData.name,
-        email: validatedData.email,
-        phone: validatedData.phone,
-        message: validatedData.message,
-        propertyId: validatedData.propertyId,
-        propertyTitle: validatedData.propertyTitle,
+        message,
+        propertyId,
         userId: session.user.id,
       },
-    });
-
-    // Send email notification to property owner
-    await sendInquiryNotification({
-      to: property.owner.email,
-      propertyTitle: validatedData.propertyTitle,
-      inquiry: {
-        name: validatedData.name,
-        email: validatedData.email,
-        phone: validatedData.phone,
-        message: validatedData.message,
+      include: {
+        user: {
+          select: {
+            name: true,
+            email: true,
+            image: true,
+          },
+        },
       },
     });
 
-    return NextResponse.json(inquiry, { status: 201 });
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { message: 'Invalid input', errors: error.errors },
-        { status: 400 }
-      );
-    }
+    // Create notification for property owner
+    const notification = await prisma.notification.create({
+      data: {
+        type: 'inquiry',
+        title: 'New Inquiry',
+        message: `${inquiry.user.name} sent an inquiry about ${property.title}`,
+        userId: property.ownerId,
+      },
+    });
 
+    // Trigger real-time notification
+    await pusherServer.trigger(
+      `user-${property.ownerId}`,
+      'notification',
+      notification
+    );
+
+    return NextResponse.json(inquiry);
+  } catch (error) {
     console.error('Error creating inquiry:', error);
     return NextResponse.json(
       { message: 'Something went wrong' },

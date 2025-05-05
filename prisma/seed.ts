@@ -1,132 +1,149 @@
-const {
-  PrismaClient,
-  ReportStatus,
-  ReportType,
-  UserRole,
-  PropertyStatus,
-} = require('@prisma/client');
-const { hash } = require('bcryptjs');
+import { PrismaClient } from '@prisma/client';
+import { hash } from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
 async function main() {
-  // Create admin user
-  const adminPassword = await hash('admin123', 12);
-  const admin = await prisma.user.create({
-    data: {
-      name: 'Admin User',
-      email: 'admin@findkeja.com',
-      password: adminPassword,
-      role: UserRole.ADMIN,
+  // Create test users
+  const landlordPassword = await hash('password123', 12);
+  const tenantPassword = await hash('password123', 12);
+
+  const landlord = await prisma.user.upsert({
+    where: { email: 'landlord@example.com' },
+    update: {},
+    create: {
+      email: 'landlord@example.com',
+      name: 'John Doe',
+      password: landlordPassword,
+      role: 'LANDLORD',
     },
   });
 
-  // Create landlords
-  const landlordPassword = await hash('landlord123', 12);
-  const landlords = await Promise.all(
-    ['John Doe', 'Jane Smith', 'Mike Johnson'].map((name) =>
-      prisma.user.create({
-        data: {
-          name,
-          email: `${name.toLowerCase().replace(' ', '')}@example.com`,
-          password: landlordPassword,
-          role: UserRole.LANDLORD,
-        },
-      })
-    )
-  );
+  const tenant = await prisma.user.upsert({
+    where: { email: 'tenant@example.com' },
+    update: {},
+    create: {
+      email: 'tenant@example.com',
+      name: 'Jane Smith',
+      password: tenantPassword,
+      role: 'TENANT',
+    },
+  });
 
-  // Create tenants
-  const tenantPassword = await hash('tenant123', 12);
-  const tenants = await Promise.all(
-    ['Alice Brown', 'Bob Wilson', 'Carol Davis'].map((name) =>
-      prisma.user.create({
-        data: {
-          name,
-          email: `${name.toLowerCase().replace(' ', '')}@example.com`,
-          password: tenantPassword,
-          role: UserRole.TENANT,
-        },
-      })
-    )
-  );
+  // Create test properties
+  const properties = await Promise.all([
+    prisma.property.create({
+      data: {
+        title: 'Modern Apartment in City Center',
+        description: 'Beautiful modern apartment with great amenities',
+        propertyType: 'APARTMENT',
+        status: 'AVAILABLE',
+        price: 1500,
+        address: '123 Main St',
+        city: 'Nairobi',
+        state: 'Nairobi',
+        country: 'Kenya',
+        latitude: -1.2921,
+        longitude: 36.8219,
+        bedrooms: 2,
+        bathrooms: 2,
+        area: 120,
+        ownerId: landlord.id,
+        images: [
+          'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267',
+          'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688',
+        ],
+        amenities: ['Parking', 'Swimming Pool', 'Gym', 'Security'],
+      },
+    }),
+    prisma.property.create({
+      data: {
+        title: 'Cozy Studio Near University',
+        description: 'Perfect for students, fully furnished studio',
+        propertyType: 'STUDIO',
+        status: 'AVAILABLE',
+        price: 800,
+        address: '456 College Ave',
+        city: 'Nairobi',
+        state: 'Nairobi',
+        country: 'Kenya',
+        latitude: -1.2921,
+        longitude: 36.8219,
+        bedrooms: 1,
+        bathrooms: 1,
+        area: 50,
+        ownerId: landlord.id,
+        images: [
+          'https://images.unsplash.com/photo-1502005229762-cf1b2da7c5d6',
+          'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688',
+        ],
+        amenities: ['Furnished', 'Internet', 'Security'],
+      },
+    }),
+    prisma.property.create({
+      data: {
+        title: 'Luxury House with Garden',
+        description: 'Spacious house with beautiful garden',
+        propertyType: 'HOUSE',
+        status: 'AVAILABLE',
+        price: 2500,
+        address: '789 Park Lane',
+        city: 'Nairobi',
+        state: 'Nairobi',
+        country: 'Kenya',
+        latitude: -1.2921,
+        longitude: 36.8219,
+        bedrooms: 4,
+        bathrooms: 3,
+        area: 250,
+        ownerId: landlord.id,
+        images: [
+          'https://images.unsplash.com/photo-1512917774080-9991f1c4c750',
+          'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688',
+        ],
+        amenities: ['Garden', 'Parking', 'Security', 'Swimming Pool'],
+      },
+    }),
+  ]);
 
-  // Create properties
-  const properties = await Promise.all(
-    landlords.flatMap((landlord) =>
-      Array.from({ length: 2 }, (_, i) =>
-        prisma.property.create({
-          data: {
-            title: `${landlord.name}'s Property ${i + 1}`,
-            description: `A beautiful property in Kitengela with ${
-              2 + i
-            } bedrooms`,
-            price: 15000 + i * 5000,
-            status: i === 0 ? PropertyStatus.AVAILABLE : PropertyStatus.RENTED,
-            ownerId: landlord.id,
-          },
-        })
-      )
-    )
-  );
+  // Create test conversation
+  const conversation = await prisma.conversation.create({
+    data: {
+      participants: {
+        connect: [{ id: landlord.id }, { id: tenant.id }],
+      },
+    },
+  });
 
-  // Create conversations and messages
-  for (const tenant of tenants) {
-    for (const landlord of landlords) {
-      const conversation = await prisma.conversation.create({
-        data: {
-          participants: {
-            connect: [{ id: tenant.id }, { id: landlord.id }],
-          },
-        },
-      });
+  // Create test messages
+  await Promise.all([
+    prisma.message.create({
+      data: {
+        content: 'I am interested in viewing this property. When is it available?',
+        senderId: tenant.id,
+        receiverId: landlord.id,
+        conversationId: conversation.id,
+      },
+    }),
+    prisma.message.create({
+      data: {
+        content: 'The property is available for viewing this weekend. Would you like to schedule a time?',
+        senderId: landlord.id,
+        receiverId: tenant.id,
+        conversationId: conversation.id,
+      },
+    }),
+    prisma.message.create({
+      data: {
+        content: 'Yes, I would like to schedule a viewing for Saturday at 2 PM.',
+        senderId: tenant.id,
+        receiverId: landlord.id,
+        conversationId: conversation.id,
+      },
+    }),
+  ]);
 
-      // Create some messages
-      await Promise.all(
-        Array.from({ length: 3 }, (_, i) =>
-          prisma.message.create({
-            data: {
-              content: `Message ${i + 1} from ${
-                i % 2 === 0 ? tenant.name : landlord.name
-              }`,
-              senderId: i % 2 === 0 ? tenant.id : landlord.id,
-              receiverId: i % 2 === 0 ? landlord.id : tenant.id,
-              conversationId: conversation.id,
-            },
-          })
-        )
-      );
-    }
-  }
-
-  // Create reports
-  const reportTypes = [
-    ReportType.SCAM,
-    ReportType.INAPPROPRIATE,
-    ReportType.FAKE_LISTING,
-    ReportType.OTHER,
-  ];
-  const reportStatuses = [
-    ReportStatus.PENDING,
-    ReportStatus.RESOLVED,
-    ReportStatus.DISMISSED,
-  ];
-
-  await Promise.all(
-    Array.from({ length: 5 }, (_, i) =>
-      prisma.report.create({
-        data: {
-          type: reportTypes[i % reportTypes.length],
-          description: `Report ${i + 1}: ${reportTypes[
-            i % reportTypes.length
-          ].toLowerCase()} issue`,
-          status: reportStatuses[i % reportStatuses.length],
-        },
-      })
-    )
-  );
-
-  console.log('Database has been seeded. 🌱');
+  console.log('Database seeded successfully!');
 }
 
 main()

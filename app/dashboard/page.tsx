@@ -7,6 +7,8 @@ import PropertyList from '@/components/dashboard/PropertyList';
 import InquiryList from '@/components/dashboard/InquiryList';
 import Pagination from '@/components/Pagination';
 import SortSelect from '@/components/dashboard/SortSelect';
+import DashboardFilters from '@/components/dashboard/DashboardFilters';
+import NotificationBell from '@/components/NotificationBell';
 
 interface DashboardPageProps {
   searchParams: {
@@ -15,6 +17,11 @@ interface DashboardPageProps {
     inquiryPage?: string;
     propertySort?: string;
     inquirySort?: string;
+    propertySearch?: string;
+    propertyType?: string;
+    propertyStatus?: string;
+    inquirySearch?: string;
+    inquiryStatus?: string;
   };
 }
 
@@ -58,11 +65,65 @@ export default async function DashboardPage({
     }
   };
 
-  const [properties, propertyCount] = await Promise.all([
-    prisma.property.findMany({
-      where: {
+  const getPropertyWhere = () => {
+    const where: any = {
+      ownerId: session.user.id,
+    };
+
+    if (searchParams.propertySearch) {
+      where.OR = [
+        {
+          title: { contains: searchParams.propertySearch, mode: 'insensitive' },
+        },
+        {
+          description: {
+            contains: searchParams.propertySearch,
+            mode: 'insensitive',
+          },
+        },
+      ];
+    }
+
+    if (searchParams.propertyType && searchParams.propertyType !== 'all') {
+      where.type = searchParams.propertyType;
+    }
+
+    if (searchParams.propertyStatus && searchParams.propertyStatus !== 'all') {
+      where.status = searchParams.propertyStatus;
+    }
+
+    return where;
+  };
+
+  const getInquiryWhere = () => {
+    const where: any = {
+      property: {
         ownerId: session.user.id,
       },
+    };
+
+    if (searchParams.inquirySearch) {
+      where.OR = [
+        { name: { contains: searchParams.inquirySearch, mode: 'insensitive' } },
+        {
+          message: {
+            contains: searchParams.inquirySearch,
+            mode: 'insensitive',
+          },
+        },
+      ];
+    }
+
+    if (searchParams.inquiryStatus && searchParams.inquiryStatus !== 'all') {
+      where.status = searchParams.inquiryStatus;
+    }
+
+    return where;
+  };
+
+  const [properties, propertyCount] = await Promise.all([
+    prisma.property.findMany({
+      where: getPropertyWhere(),
       include: {
         _count: {
           select: {
@@ -75,19 +136,13 @@ export default async function DashboardPage({
       take: itemsPerPage,
     }),
     prisma.property.count({
-      where: {
-        ownerId: session.user.id,
-      },
+      where: getPropertyWhere(),
     }),
   ]);
 
   const [inquiries, inquiryCount] = await Promise.all([
     prisma.inquiry.findMany({
-      where: {
-        property: {
-          ownerId: session.user.id,
-        },
-      },
+      where: getInquiryWhere(),
       include: {
         property: {
           select: {
@@ -108,30 +163,51 @@ export default async function DashboardPage({
       take: itemsPerPage,
     }),
     prisma.inquiry.count({
-      where: {
-        property: {
-          ownerId: session.user.id,
-        },
-      },
+      where: getInquiryWhere(),
     }),
   ]);
 
+  const notifications = await prisma.notification.findMany({
+    where: {
+      userId: session.user.id,
+    },
+    orderBy: {
+      createdAt: 'desc',
+    },
+    take: 50,
+  });
+
   return (
     <div className="container mx-auto py-8">
-      <DashboardHeader />
+      <div className="flex items-center justify-between">
+        <DashboardHeader />
+        <NotificationBell
+          notifications={notifications}
+          onMarkAsRead={async (id) => {
+            'use server';
+            await prisma.notification.update({
+              where: { id },
+              data: { read: true },
+            });
+          }}
+        />
+      </div>
       <div className="mt-8 grid gap-8 md:grid-cols-2">
         <div>
-          <div className="mb-4 flex justify-end">
-            <SortSelect
-              options={[
-                { label: 'Newest First', value: 'newest' },
-                { label: 'Oldest First', value: 'oldest' },
-                { label: 'Price: Low to High', value: 'price-asc' },
-                { label: 'Price: High to Low', value: 'price-desc' },
-                { label: 'Most Inquiries', value: 'inquiries' },
-              ]}
-              paramName="propertySort"
-            />
+          <div className="mb-4 space-y-4">
+            <div className="flex justify-end">
+              <SortSelect
+                options={[
+                  { label: 'Newest First', value: 'newest' },
+                  { label: 'Oldest First', value: 'oldest' },
+                  { label: 'Price: Low to High', value: 'price-asc' },
+                  { label: 'Price: High to Low', value: 'price-desc' },
+                  { label: 'Most Inquiries', value: 'inquiries' },
+                ]}
+                paramName="propertySort"
+              />
+            </div>
+            <DashboardFilters type="property" />
           </div>
           <PropertyList properties={properties} />
           <div className="mt-4">
@@ -145,14 +221,17 @@ export default async function DashboardPage({
           </div>
         </div>
         <div>
-          <div className="mb-4 flex justify-end">
-            <SortSelect
-              options={[
-                { label: 'Newest First', value: 'newest' },
-                { label: 'Oldest First', value: 'oldest' },
-              ]}
-              paramName="inquirySort"
-            />
+          <div className="mb-4 space-y-4">
+            <div className="flex justify-end">
+              <SortSelect
+                options={[
+                  { label: 'Newest First', value: 'newest' },
+                  { label: 'Oldest First', value: 'oldest' },
+                ]}
+                paramName="inquirySort"
+              />
+            </div>
+            <DashboardFilters type="inquiry" />
           </div>
           <InquiryList inquiries={inquiries} />
           <div className="mt-4">

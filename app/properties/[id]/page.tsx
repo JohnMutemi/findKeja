@@ -1,191 +1,295 @@
-import { notFound } from 'next/navigation';
-import { getServerSession } from 'next-auth';
-import prisma from '@/lib/prisma';
-import Image from 'next/image';
-import Link from 'next/link';
-import Map from '@/components/Map';
-import InquiryForm from '@/components/InquiryForm';
+'use client';
 
-interface PropertyPageProps {
-  params: {
+import { useState } from 'react';
+import Image from 'next/image';
+import { useRouter } from 'next/navigation';
+import { useSession } from 'next-auth/react';
+import {
+  MapPin,
+  Bed,
+  Bath,
+  Square,
+  Phone,
+  Mail,
+  Edit,
+  Trash2,
+} from 'lucide-react';
+
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { useToast } from '@/components/ui/use-toast';
+
+interface Property {
+  id: string;
+  title: string;
+  description: string;
+  price: number;
+  type: string;
+  bedrooms: number;
+  bathrooms: number;
+  area: number;
+  address: string;
+  city: string;
+  state: string;
+  country: string;
+  images: string[];
+  amenities: string[];
+  owner: {
     id: string;
+    name: string;
+    email: string;
+    phone?: string;
   };
 }
 
-export default async function PropertyPage({ params }: PropertyPageProps) {
-  const session = await getServerSession();
+export default function PropertyDetailsPage({
+  params,
+}: {
+  params: { id: string };
+}) {
+  const router = useRouter();
+  const { data: session } = useSession();
+  const { toast } = useToast();
+  const [property, setProperty] = useState<Property | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedImage, setSelectedImage] = useState(0);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
-  const property = await prisma.property.findUnique({
-    where: {
-      id: params.id,
-    },
-    include: {
-      location: true,
-      owner: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          image: true,
-          phone: true,
-        },
-      },
-    },
-  });
+  const fetchProperty = async () => {
+    try {
+      const response = await fetch(`/api/properties/${params.id}`);
+      if (response.ok) {
+        const data = await response.json();
+        setProperty(data);
+      } else {
+        throw new Error('Failed to fetch property');
+      }
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to load property details',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-  if (!property) {
-    notFound();
+  const handleDelete = async () => {
+    try {
+      const response = await fetch(`/api/properties/${params.id}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        toast({
+          title: 'Success',
+          description: 'Property deleted successfully',
+        });
+        router.push('/properties');
+      } else {
+        throw new Error('Failed to delete property');
+      }
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to delete property',
+      });
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="container py-8">
+        <div className="animate-pulse space-y-8">
+          <div className="h-96 w-full rounded-lg bg-muted" />
+          <div className="space-y-4">
+            <div className="h-8 w-3/4 rounded bg-muted" />
+            <div className="h-4 w-1/2 rounded bg-muted" />
+            <div className="h-4 w-full rounded bg-muted" />
+          </div>
+        </div>
+      </div>
+    );
   }
 
-  const isOwner = session?.user?.id === property.ownerId;
+  if (!property) {
+    return (
+      <div className="container py-8">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold">Property not found</h1>
+          <p className="mt-2 text-muted-foreground">
+            The property you're looking for doesn't exist or has been removed.
+          </p>
+          <Button className="mt-4" onClick={() => router.push('/properties')}>
+            Back to Properties
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  const isOwner = session?.user?.id === property.owner.id;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <Link
-            href="/properties/search"
-            className="mb-4 inline-block text-blue-600 hover:text-blue-700"
-          >
-            ← Back to Search
-          </Link>
-          <h1 className="text-2xl font-bold">{property.title}</h1>
-          <p className="mt-2 text-gray-600">{property.location.address}</p>
-        </div>
+    <div className="container py-8">
+      {/* Image Gallery */}
+      <div className="relative mb-8 aspect-video w-full overflow-hidden rounded-lg">
+        <Image
+          src={property.images[selectedImage] || '/placeholder.jpg'}
+          alt={property.title}
+          fill
+          className="object-cover"
+          priority
+        />
+        {property.images.length > 1 && (
+          <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 gap-2">
+            {property.images.map((_, index) => (
+              <button
+                key={index}
+                className={`h-2 w-2 rounded-full transition-colors ${
+                  selectedImage === index ? 'bg-white' : 'bg-white/50'
+                }`}
+                onClick={() => setSelectedImage(index)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
 
-        <div className="grid gap-8 lg:grid-cols-3">
-          <div className="lg:col-span-2">
-            {/* Image Gallery */}
-            <div className="mb-8 overflow-hidden rounded-lg border bg-white shadow-sm">
-              <div className="relative aspect-video">
-                <Image
-                  src={property.images[0]}
-                  alt={property.title}
-                  fill
-                  className="object-cover"
-                />
+      {/* Property Details */}
+      <div className="grid gap-8 md:grid-cols-3">
+        <div className="md:col-span-2">
+          <div className="mb-6">
+            <div className="flex items-start justify-between">
+              <div>
+                <h1 className="text-3xl font-bold">{property.title}</h1>
+                <p className="mt-2 text-2xl font-semibold text-primary">
+                  KSh {property.price.toLocaleString()}
+                </p>
               </div>
-              {property.images.length > 1 && (
-                <div className="grid grid-cols-4 gap-2 p-2">
-                  {property.images.slice(1).map((image, index) => (
-                    <div key={index} className="relative aspect-square">
-                      <Image
-                        src={image}
-                        alt={`${property.title} - Image ${index + 2}`}
-                        fill
-                        className="rounded-lg object-cover"
-                      />
-                    </div>
-                  ))}
+              {isOwner && (
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() =>
+                      router.push(`/properties/${property.id}/edit`)
+                    }>
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                  <Dialog
+                    open={isDeleteDialogOpen}
+                    onOpenChange={setIsDeleteDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="icon">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Delete Property</DialogTitle>
+                        <DialogDescription>
+                          Are you sure you want to delete this property? This
+                          action cannot be undone.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <DialogFooter>
+                        <Button
+                          variant="outline"
+                          onClick={() => setIsDeleteDialogOpen(false)}>
+                          Cancel
+                        </Button>
+                        <Button variant="destructive" onClick={handleDelete}>
+                          Delete
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
                 </div>
               )}
             </div>
-
-            {/* Property Details */}
-            <div className="mb-8 overflow-hidden rounded-lg border bg-white p-6 shadow-sm">
-              <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-4">
-                <div>
-                  <p className="text-sm text-gray-600">Price</p>
-                  <p className="text-lg font-bold text-blue-600">
-                    KSh {property.price.toLocaleString()}/month
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Deposit</p>
-                  <p className="text-lg font-bold">
-                    KSh {property.deposit.toLocaleString()}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Bedrooms</p>
-                  <p className="text-lg font-bold">{property.bedrooms}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Bathrooms</p>
-                  <p className="text-lg font-bold">{property.bathrooms}</p>
-                </div>
-              </div>
-
-              <div className="mb-6">
-                <h2 className="mb-2 text-lg font-semibold">Description</h2>
-                <p className="text-gray-700">{property.description}</p>
-              </div>
-
-              <div className="mb-6">
-                <h2 className="mb-2 text-lg font-semibold">Amenities</h2>
-                <div className="flex flex-wrap gap-2">
-                  {property.amenities.map((amenity) => (
-                    <span
-                      key={amenity}
-                      className="rounded-full bg-gray-100 px-3 py-1 text-sm font-medium text-gray-700"
-                    >
-                      {amenity}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <h2 className="mb-2 text-lg font-semibold">Location</h2>
-                <div className="h-64 overflow-hidden rounded-lg">
-                  <Map
-                    latitude={property.location.latitude}
-                    longitude={property.location.longitude}
-                    markers={[
-                      {
-                        latitude: property.location.latitude,
-                        longitude: property.location.longitude,
-                        title: property.title,
-                        price: property.price,
-                      },
-                    ]}
-                  />
-                </div>
-              </div>
+            <div className="mt-4 flex items-center text-muted-foreground">
+              <MapPin className="mr-2 h-4 w-4" />
+              <span>
+                {property.address}, {property.city}, {property.state},{' '}
+                {property.country}
+              </span>
             </div>
           </div>
 
-          <div>
-            {/* Owner Information */}
-            <div className="sticky top-8 space-y-6">
-              <div className="overflow-hidden rounded-lg border bg-white p-6 shadow-sm">
-                <div className="mb-4 flex items-center gap-4">
-                  {property.owner.image && (
-                    <Image
-                      src={property.owner.image}
-                      alt={property.owner.name || ''}
-                      width={64}
-                      height={64}
-                      className="rounded-full"
-                    />
-                  )}
-                  <div>
-                    <h2 className="text-lg font-semibold">
-                      {property.owner.name}
-                    </h2>
-                    <p className="text-gray-600">Property Owner</p>
-                  </div>
-                </div>
+          <div className="mb-8 grid grid-cols-3 gap-4 rounded-lg border p-4">
+            <div className="flex items-center">
+              <Bed className="mr-2 h-4 w-4 text-muted-foreground" />
+              <span>{property.bedrooms} Bedrooms</span>
+            </div>
+            <div className="flex items-center">
+              <Bath className="mr-2 h-4 w-4 text-muted-foreground" />
+              <span>{property.bathrooms} Bathrooms</span>
+            </div>
+            <div className="flex items-center">
+              <Square className="mr-2 h-4 w-4 text-muted-foreground" />
+              <span>{property.area}m²</span>
+            </div>
+          </div>
 
-                {isOwner ? (
-                  <div className="space-y-2">
-                    <Link
-                      href={`/properties/${property.id}/edit`}
-                      className="block w-full rounded-md bg-blue-600 px-4 py-2 text-center text-white transition-colors hover:bg-blue-700"
-                    >
-                      Edit Property
-                    </Link>
-                    <Link
-                      href={`/properties/${property.id}/inquiries`}
-                      className="block w-full rounded-md bg-gray-100 px-4 py-2 text-center text-gray-700 transition-colors hover:bg-gray-200"
-                    >
-                      View Inquiries
-                    </Link>
-                  </div>
-                ) : (
-                  <InquiryForm propertyId={property.id} />
-                )}
+          <div className="mb-8">
+            <h2 className="mb-4 text-xl font-semibold">Description</h2>
+            <p className="whitespace-pre-wrap text-muted-foreground">
+              {property.description}
+            </p>
+          </div>
+
+          {property.amenities.length > 0 && (
+            <div>
+              <h2 className="mb-4 text-xl font-semibold">Amenities</h2>
+              <div className="flex flex-wrap gap-2">
+                {property.amenities.map((amenity) => (
+                  <span
+                    key={amenity}
+                    className="rounded-full bg-muted px-3 py-1 text-sm">
+                    {amenity}
+                  </span>
+                ))}
               </div>
+            </div>
+          )}
+        </div>
+
+        {/* Contact Information */}
+        <div className="rounded-lg border p-6">
+          <h2 className="mb-4 text-xl font-semibold">Contact Information</h2>
+          <div className="space-y-4">
+            <div>
+              <p className="font-medium">{property.owner.name}</p>
+              <p className="text-sm text-muted-foreground">Property Owner</p>
+            </div>
+            {property.owner.phone && (
+              <div className="flex items-center">
+                <Phone className="mr-2 h-4 w-4 text-muted-foreground" />
+                <a
+                  href={`tel:${property.owner.phone}`}
+                  className="text-sm hover:underline">
+                  {property.owner.phone}
+                </a>
+              </div>
+            )}
+            <div className="flex items-center">
+              <Mail className="mr-2 h-4 w-4 text-muted-foreground" />
+              <a
+                href={`mailto:${property.owner.email}`}
+                className="text-sm hover:underline">
+                {property.owner.email}
+              </a>
             </div>
           </div>
         </div>

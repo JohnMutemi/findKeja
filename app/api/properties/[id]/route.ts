@@ -44,7 +44,10 @@ export async function PATCH(
 
     if (!property) {
       return NextResponse.json(
-        { error: 'Property not found or you do not have permission to update it' },
+        {
+          error:
+            'Property not found or you do not have permission to update it',
+        },
         { status: 404 }
       );
     }
@@ -130,7 +133,10 @@ export async function DELETE(
 
     if (!property) {
       return NextResponse.json(
-        { error: 'Property not found or you do not have permission to delete it' },
+        {
+          error:
+            'Property not found or you do not have permission to delete it',
+        },
         { status: 404 }
       );
     }
@@ -149,4 +155,42 @@ export async function DELETE(
       { status: 500 }
     );
   }
-} 
+}
+
+export async function GET(
+  req: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const property = await prisma.property.findUnique({
+      where: {
+        id: params.id,
+      },
+      include: {
+        owner: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+          },
+        },
+      },
+    });
+
+    if (!property) {
+      return NextResponse.json(
+        { message: 'Property not found' },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json(property);
+  } catch (error) {
+    console.error('Error fetching property:', error);
+    return NextResponse.json(
+      { message: 'Something went wrong' },
+      { status: 500 }
+    );
+  }
+}

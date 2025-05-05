@@ -15,8 +15,11 @@ import {
   Walk,
   Bike,
   Train,
+  Square,
+  Plus,
 } from 'lucide-react';
 import Image from 'next/image';
+import Link from 'next/link';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -50,6 +53,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import DirectionsModal from '@/components/DirectionsModal';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface Property {
   id: string;
@@ -70,6 +74,7 @@ interface Property {
   images: string[];
   amenities: string[];
   owner: {
+    id: string;
     name: string;
   };
   createdAt: string;
@@ -160,11 +165,22 @@ export default function PropertiesPage() {
   if (isLoading) {
     return (
       <div className="container py-8">
-        <div className="flex items-center justify-center">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-            <p className="mt-4">Loading properties...</p>
-          </div>
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {[...Array(6)].map((_, i) => (
+            <Card key={i}>
+              <Skeleton className="h-48 w-full rounded-t-lg" />
+              <CardHeader>
+                <Skeleton className="h-6 w-3/4" />
+                <Skeleton className="h-4 w-1/2" />
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-2/3" />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       </div>
     );
@@ -172,6 +188,18 @@ export default function PropertiesPage() {
 
   return (
     <div className="container py-8">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Properties</h1>
+        {session && (
+          <Link href="/properties/new">
+            <Button>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Property
+            </Button>
+          </Link>
+        )}
+      </div>
+
       <div className="flex flex-col gap-8">
         {/* Filters */}
         <Card>
@@ -256,190 +284,56 @@ export default function PropertiesPage() {
         {/* Property List */}
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {filteredProperties.map((property) => (
-            <Card key={property.id}>
-              <CardHeader className="p-0">
+            <Link
+              key={property.id}
+              href={`/properties/${property.id}`}
+              className="block">
+              <Card className="h-full transition-colors hover:bg-accent/50">
                 <div className="relative h-48 w-full">
                   <Image
-                    src={property.images[0] || '/placeholder.jpg'}
+                    src={property.images?.[0] || '/placeholder.jpg'}
                     alt={property.title}
                     fill
                     className="object-cover rounded-t-lg"
                   />
-                  <Badge
-                    className="absolute top-2 right-2"
-                    variant={
-                      property.status === 'AVAILABLE'
-                        ? 'default'
-                        : property.status === 'PENDING'
-                        ? 'secondary'
-                        : 'destructive'
-                    }>
-                    {property.status}
-                  </Badge>
                 </div>
-                <div className="p-6">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <CardTitle>{property.title}</CardTitle>
-                      <CardDescription>
-                        <div className="flex items-center gap-2">
-                          <MapPin className="h-4 w-4" />
-                          {property.city}, {property.state}
-                        </div>
-                      </CardDescription>
+                <CardHeader>
+                  <CardTitle className="line-clamp-1">{property.title}</CardTitle>
+                  <CardDescription className="line-clamp-2">
+                    {property.description}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <div className="flex items-center text-sm text-muted-foreground">
+                      <MapPin className="mr-2 h-4 w-4" />
+                      <span className="line-clamp-1">
+                        {property.address}, {property.city}
+                      </span>
                     </div>
-                    <Badge variant="outline">{property.type}</Badge>
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center">
+                          <Bed className="mr-1 h-4 w-4" />
+                          <span>{property.bedrooms}</span>
+                        </div>
+                        <div className="flex items-center">
+                          <Bath className="mr-1 h-4 w-4" />
+                          <span>{property.bathrooms}</span>
+                        </div>
+                        <div className="flex items-center">
+                          <Square className="mr-1 h-4 w-4" />
+                          <span>{property.area}m²</span>
+                        </div>
+                      </div>
+                      <div className="font-semibold">
+                        KSh {property.price.toLocaleString()}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-3 gap-4 mb-4">
-                  <div className="flex items-center gap-2">
-                    <Bed className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm">{property.bedrooms} beds</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Bath className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm">{property.bathrooms} baths</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Ruler className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm">{property.area}m²</span>
-                  </div>
-                </div>
-                <p className="text-sm text-muted-foreground mb-4">
-                  {property.description}
-                </p>
-                <p className="text-2xl font-bold mb-4">
-                  KSh {property.price.toLocaleString()}
-                </p>
-                <div className="flex gap-2">
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button variant="outline" className="flex-1">
-                        View Details
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-4xl">
-                      <DialogHeader>
-                        <DialogTitle>{property.title}</DialogTitle>
-                        <DialogDescription>
-                          {property.address}, {property.city}, {property.state}
-                        </DialogDescription>
-                      </DialogHeader>
-                      <Tabs defaultValue="images">
-                        <TabsList>
-                          <TabsTrigger value="images">Images</TabsTrigger>
-                          <TabsTrigger value="details">Details</TabsTrigger>
-                          <TabsTrigger value="map">Map</TabsTrigger>
-                        </TabsList>
-                        <TabsContent value="images" className="mt-4">
-                          <ScrollArea className="h-[400px]">
-                            <div className="grid grid-cols-2 gap-4">
-                              {property.images.map((image, index) => (
-                                <div key={index} className="relative h-64">
-                                  <Image
-                                    src={image}
-                                    alt={`${property.title} - Image ${
-                                      index + 1
-                                    }`}
-                                    fill
-                                    className="object-cover rounded-lg"
-                                  />
-                                </div>
-                              ))}
-                            </div>
-                          </ScrollArea>
-                        </TabsContent>
-                        <TabsContent value="details" className="mt-4">
-                          <div className="grid gap-4">
-                            <div className="grid grid-cols-2 gap-4">
-                              <div>
-                                <h4 className="font-medium mb-2">
-                                  Property Details
-                                </h4>
-                                <div className="space-y-2">
-                                  <div className="flex justify-between">
-                                    <span className="text-muted-foreground">
-                                      Type
-                                    </span>
-                                    <span>{property.type}</span>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span className="text-muted-foreground">
-                                      Bedrooms
-                                    </span>
-                                    <span>{property.bedrooms}</span>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span className="text-muted-foreground">
-                                      Bathrooms
-                                    </span>
-                                    <span>{property.bathrooms}</span>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span className="text-muted-foreground">
-                                      Area
-                                    </span>
-                                    <span>{property.area}m²</span>
-                                  </div>
-                                </div>
-                              </div>
-                              <div>
-                                <h4 className="font-medium mb-2">Amenities</h4>
-                                <div className="flex flex-wrap gap-2">
-                                  {property.amenities.map((amenity, index) => (
-                                    <Badge key={index} variant="secondary">
-                                      {amenity}
-                                    </Badge>
-                                  ))}
-                                </div>
-                              </div>
-                            </div>
-                            <Separator />
-                            <div>
-                              <h4 className="font-medium mb-2">Description</h4>
-                              <p className="text-muted-foreground">
-                                {property.description}
-                              </p>
-                            </div>
-                          </div>
-                        </TabsContent>
-                        <TabsContent value="map" className="mt-4">
-                          <div className="space-y-4">
-                            <div className="flex justify-end">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="gap-2"
-                                onClick={() => handleGetDirections(property)}>
-                                <Navigation className="h-4 w-4" />
-                                Get Directions
-                              </Button>
-                            </div>
-                            <div className="h-[400px] rounded-lg overflow-hidden">
-                              <iframe
-                                src={`https://api.mapbox.com/styles/v1/mapbox/streets-v11/static/pin-s+ff0000(${property.longitude},${property.latitude})/${property.longitude},${property.latitude},14,0/600x400?access_token=${process.env.NEXT_PUBLIC_MAPBOX_TOKEN}`}
-                                width="100%"
-                                height="100%"
-                                style={{ border: 0 }}
-                                allowFullScreen
-                                loading="lazy"
-                              />
-                            </div>
-                          </div>
-                        </TabsContent>
-                      </Tabs>
-                    </DialogContent>
-                  </Dialog>
-                  <Button
-                    className="flex-1"
-                    onClick={() => handleContact(property.id)}>
-                    Contact Owner
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </Link>
           ))}
         </div>
 

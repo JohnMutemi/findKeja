@@ -1,5 +1,5 @@
-import { PrismaClient } from '@prisma/client';
-import { hash } from 'bcryptjs';
+const { PrismaClient } = require('@prisma/client');
+const { hash } = require('bcryptjs');
 
 const prisma = new PrismaClient();
 
@@ -36,7 +36,7 @@ async function main() {
       data: {
         title: 'Modern Apartment in City Center',
         description: 'Beautiful modern apartment with great amenities',
-        propertyType: 'APARTMENT',
+        type: 'APARTMENT',
         status: 'AVAILABLE',
         price: 1500,
         address: '123 Main St',
@@ -60,7 +60,7 @@ async function main() {
       data: {
         title: 'Cozy Studio Near University',
         description: 'Perfect for students, fully furnished studio',
-        propertyType: 'STUDIO',
+        type: 'STUDIO',
         status: 'AVAILABLE',
         price: 800,
         address: '456 College Ave',
@@ -84,7 +84,7 @@ async function main() {
       data: {
         title: 'Luxury House with Garden',
         description: 'Spacious house with beautiful garden',
-        propertyType: 'HOUSE',
+        type: 'HOUSE',
         status: 'AVAILABLE',
         price: 2500,
         address: '789 Park Lane',

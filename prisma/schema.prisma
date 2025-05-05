@@ -41,6 +41,19 @@ enum PropertyType {
   PENTHOUSE
 }
 
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 model User {
   id            String         @id @default(cuid())
   name          String
@@ -53,6 +66,7 @@ model User {
   sentMessages     Message[]     @relation("SentMessages")
   receivedMessages Message[]     @relation("ReceivedMessages")
   conversations    Conversation[] @relation("ConversationParticipants")
+  bookings    Booking[]    @relation("TenantBookings")
 }
 
 model Property {
@@ -77,6 +91,8 @@ model Property {
   updatedAt   DateTime      @updatedAt
   owner       User          @relation(fields: [ownerId], references: [id])
   ownerId     String
+  bookings    Booking[]
+  reviews     Review[]
 }
 
 model Conversation {
@@ -104,6 +120,31 @@ model Report {
   type        ReportType
   description String
   status      ReportStatus @default(PENDING)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model Booking {
+  id          String        @id @default(cuid())
+  property    Property      @relation(fields: [propertyId], references: [id])
+  propertyId  String
+  tenant      User          @relation("TenantBookings", fields: [tenantId], references: [id])
+  tenantId    String
+  startDate   DateTime
+  endDate     DateTime
+  status      BookingStatus @default(PENDING)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  review      Review?
+}
+
+model Review {
+  id          String       @id @default(cuid())
+  booking     Booking      @relation(fields: [bookingId], references: [id])
+  bookingId   String       @unique
+  rating      Int         // 1-5 stars
+  comment     String
+  status      ReviewStatus @default(PENDING)
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 } 

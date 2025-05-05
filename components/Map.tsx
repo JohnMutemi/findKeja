@@ -1,3 +1,5 @@
+'use client';
+
 import { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
@@ -5,25 +7,22 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 interface MapProps {
   latitude: number;
   longitude: number;
-  zoom?: number;
   markers?: Array<{
     latitude: number;
     longitude: number;
     title?: string;
+    price?: number;
   }>;
-  onMarkerClick?: (marker: {
-    latitude: number;
-    longitude: number;
-    title?: string;
-  }) => void;
+  interactive?: boolean;
+  onSelectLocation?: (lat: number, lng: number) => void;
 }
 
 export default function Map({
   latitude,
   longitude,
-  zoom = 12,
   markers = [],
-  onMarkerClick,
+  interactive = false,
+  onSelectLocation,
 }: MapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
@@ -32,13 +31,14 @@ export default function Map({
   useEffect(() => {
     if (!mapContainer.current) return;
 
-    mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN!;
+    mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
 
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
       style: 'mapbox://styles/mapbox/streets-v12',
       center: [longitude, latitude],
-      zoom: zoom,
+      zoom: 13,
+      interactive,
     });
 
     map.current.on('load', () => {
@@ -46,49 +46,50 @@ export default function Map({
     });
 
     return () => {
-      map.current?.remove();
+      if (map.current) {
+        map.current.remove();
+      }
     };
-  }, [latitude, longitude, zoom]);
+  }, [latitude, longitude, interactive]);
 
   useEffect(() => {
-    if (!mapLoaded || !map.current) return;
+    if (!map.current || !mapLoaded) return;
 
-    // Clear existing markers
-    const markers = document.getElementsByClassName('mapboxgl-marker');
-    while (markers[0]) {
-      markers[0].remove();
-    }
-
-    // Add new markers
+    // Add markers
     markers.forEach((marker) => {
       const el = document.createElement('div');
       el.className = 'marker';
-      el.style.width = '30px';
-      el.style.height = '30px';
+      el.style.width = '32px';
+      el.style.height = '32px';
       el.style.backgroundImage = 'url(/marker.png)';
       el.style.backgroundSize = 'cover';
       el.style.cursor = 'pointer';
 
+      const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(`
+        <h3 class="font-semibold">${marker.title || 'Property'}</h3>
+        ${marker.price ? `<p>KSh ${marker.price.toLocaleString()}</p>` : ''}
+      `);
+
       new mapboxgl.Marker(el)
         .setLngLat([marker.longitude, marker.latitude])
-        .setPopup(
-          new mapboxgl.Popup({ offset: 25 }).setHTML(
-            `<h3>${marker.title || 'Property Location'}</h3>`
-          )
-        )
+        .setPopup(popup)
         .addTo(map.current!);
-
-      if (onMarkerClick) {
-        el.addEventListener('click', () => {
-          onMarkerClick(marker);
-        });
-      }
     });
-  }, [mapLoaded, markers, onMarkerClick]);
+
+    // Add click handler for location selection
+    if (interactive && onSelectLocation) {
+      map.current.on('click', (e) => {
+        const { lng, lat } = e.lngLat;
+        onSelectLocation(lat, lng);
+      });
+    }
+  }, [mapLoaded, markers, interactive, onSelectLocation]);
 
   return (
-    <div className="relative w-full h-[400px] rounded-lg overflow-hidden">
-      <div ref={mapContainer} className="absolute inset-0" />
-    </div>
+    <div
+      ref={mapContainer}
+      className="h-full w-full rounded-lg"
+      style={{ minHeight: '400px' }}
+    />
   );
 }
